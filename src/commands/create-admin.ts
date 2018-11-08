@@ -130,6 +130,36 @@ export default class CreateAdmin extends Command {
           message: 'Path of the project: ',
           default: (answers: any) => urlSlug(answers.project),
         },
+        {
+          name: 'variables.dev_api_url',
+          message: 'Development API URL: ',
+          default: (answers: any) => `https://${answers.project_path}-api.dev.room9.nz`,
+        },
+        {
+          name: 'variables.uat_api_url',
+          message: 'UAT API URL: ',
+          default: (answers: any) => answers.variables.dev_api_url.replace('.dev.', '.uat.'),
+        },
+        {
+          name: 'variables.prod_api_url',
+          message: 'Production API URL: ',
+          default: (answers: any) => answers.variables.dev_api_url.replace('.dev.', '.prod.'),
+        },
+        {
+          name: 'variables.dev_url',
+          message: 'Development Admin URL: ',
+          default: (answers: any) => answers.variables.dev_api_url.replace('-api.', '.'),
+        },
+        {
+          name: 'variables.uat_url',
+          message: 'UAT Admin URL: ',
+          default: (answers: any) => answers.variables.dev_url.replace('.dev.', '.uat.'),
+        },
+        {
+          name: 'variables.prod_url',
+          message: 'Production Admin URL: ',
+          default: (answers: any) => answers.variables.dev_url.replace('.dev.', '.prod.'),
+        },
       ]);
   }
 
@@ -177,6 +207,9 @@ export default class CreateAdmin extends Command {
       ],
       '__mocks__/@room9': [
         'ra-feathers-client.js',
+      ],
+      '.': [
+        '.gitlab-ci.yml',
       ],
     };
     const pathToFiles = join(__dirname, '../assets/create-admin');
@@ -228,6 +261,23 @@ export default class CreateAdmin extends Command {
     await this.asyncSpawn('twgit', ['demo', 'start', 'integration'], { cwd: projectDirectory });
   }
 
+  async setupGitlabVariables(variables: any, api: any, projectId: number) {
+    const variablePromises: Promise<any>[] = [];
+    Object.keys(variables).forEach((i: string) => {
+      this.log('var', i, variables[i]);
+      return api.ProjectVariables.create(
+        projectId,
+        '',
+        {
+          key: i.toUpperCase(),
+          value: variables[i],
+          protected: false,
+        },
+      );
+    });
+    return Promise.all(variablePromises);
+  }
+
   async run() {
     const userConfig = this.getConfig();
     const useTempCra = await this.checkVersion();
@@ -238,6 +288,9 @@ export default class CreateAdmin extends Command {
 
     const groupOptions = await this.getGroupList(api);
     const data: any = await this.getAnswers(groupOptions);
+    // for now we're stealing the ssh key from Hub
+    const sshKey: any = api.ProjectVariables.show(56, 81);
+    data.variables.ssh_private_key = sshKey.value;
     const projectDirectory = `${userConfig.projects_path}/${data.project}`;
 
     // create gitlab group
@@ -250,7 +303,7 @@ export default class CreateAdmin extends Command {
     }
 
     // create gitlab project
-    await api.Projects.create({
+    const project = await api.Projects.create({
       name: data.project,
       path: data.project_path,
       namespace_id: data.group.id,
@@ -263,5 +316,6 @@ export default class CreateAdmin extends Command {
     await this.copyFiles(projectDirectory);
     this.editTsconfig(projectDirectory);
     await this.setupGit(projectDirectory, data.group.path, data.project);
+    await this.setupGitlabVariables(data.variables, api, project.id);
   }
 }

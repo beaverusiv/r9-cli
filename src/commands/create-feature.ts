@@ -58,6 +58,7 @@ export default class Config extends Command {
           choices: async (answers: any) => this.getPivotalStories(answers.pivotal_project),
         },
       ]);
+    // TODO: filter stories on assigned to user
     // TODO: twgit feature start ${data.pivotal_story}
     // set pivotal story to 'started'
     await this.setPivotalStoryState(data.pivotal_project, data.pivotal_story);

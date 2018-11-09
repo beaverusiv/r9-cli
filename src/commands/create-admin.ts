@@ -55,9 +55,7 @@ export default class CreateAdmin extends Command {
     });
   }
 
-  async run() {
-    let useTempCra: boolean = true;
-    // config check
+  async loadConfig() {
     let userConfig: any = readFileSync(join(this.config.configDir, 'config.json'));
     if (!userConfig) {
       this.log('Config file not found. Please run r9 config first to setup your Gitlab account');
@@ -66,8 +64,12 @@ export default class CreateAdmin extends Command {
     if (!userConfig) {
       this.log('Config not valid JSON. Please run r9 config first to setup your Gitlab account');
     }
+    return userConfig;
+  }
 
-    // version check
+  async run() {
+    let useTempCra: boolean = true;
+    const userConfig = this.loadConfig();
     const version: string = await this.asyncSpawn(
       'npx',
       ['create-react-app', '-V'],

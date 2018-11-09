@@ -9,6 +9,8 @@ export default class Config extends Command {
   async run() {
     this.log('Visit https://git.room9.co.nz/profile/personal_access_tokens' +
       'and ensure you have a personal access token with api access ready for input!');
+    this.log('Visit https://www.pivotaltracker.com/profile' +
+      'and ensure you have a n API token ready for input!');
     // ask the questions
     let data: any = await inquirer
       .prompt([
@@ -25,6 +27,15 @@ export default class Config extends Command {
         {
           name: 'gitlab_key',
           message: 'Private access token: ',
+        },
+        {
+          name: 'pivotal_url',
+          message: 'Pivotal Tracker URL: ',
+          default: 'https://www.pivotaltracker.com/services/v5',
+        },
+        {
+          name: 'pivotal_key',
+          message: 'Pivotal Tracker API token: ',
         },
       ]);
     data = JSON.stringify(data);

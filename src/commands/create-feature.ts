@@ -79,7 +79,8 @@ export default class Config extends Command {
     await this.setPivotalStoryState(
       data.pivotal_project,
       data.pivotal_story,
-      userConfig.pivotal_url, headers,
+      userConfig.pivotal_url,
+      headers,
     );
   }
 }

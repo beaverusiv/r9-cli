@@ -13,11 +13,19 @@ export default class CreateAdmin extends Command {
   static description = 'Create a new react-admin project, ' +
     'including the Gitlab project and stable/demo-integration branches';
 
-  async checkVersion() {
+  checkDependencies(): boolean {
+    if (!shell.which('twgit')) {
+      shell.echo('This tool requires twgit installed: https://github.com/Twenga/twgit');
+      return false;
+    }
+    return true;
+  }
+
+  checkVersion() {
     let useTempCra: boolean = true;
-    const version: string = shell.exec('create-react-app -V').stdout;
+    const version: string = shell.exec('create-react-app -V', { silent:true }).stdout as string;
     if (version) {
-      this.log('CRA version is ', version);
+      this.log('CRA version is ', version.trim());
       if (gte(version, '2.1.0')) {
         this.log('Using local CRA package');
         useTempCra = false;
@@ -182,6 +190,10 @@ export default class CreateAdmin extends Command {
   }
 
   async run() {
+    if (!this.checkDependencies()) {
+      return 1;
+    }
+
     const userConfig = this.getConfig();
     const useTempCra = await this.checkVersion();
     const api = new Gitlab({

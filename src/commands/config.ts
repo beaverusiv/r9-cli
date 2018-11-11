@@ -1,6 +1,6 @@
 import Command from '@oclif/command';
 import * as inquirer from 'inquirer';
-import { writeFileSync, mkdirSync } from 'fs';
+import { writeFileSync, mkdirSync, existsSync } from 'fs'
 import { join } from 'path';
 
 export default class Config extends Command {
@@ -39,7 +39,9 @@ export default class Config extends Command {
         },
       ]);
     data = JSON.stringify(data);
-    mkdirSync(this.config.configDir);
+    if (!existsSync(this.config.configDir)) {
+      mkdirSync(this.config.configDir);
+    }
     writeFileSync(join(this.config.configDir, 'config.json'), data);
   }
 }

@@ -57,7 +57,6 @@ export default class CreateAdmin extends Command {
 
   async checkVersion() {
     let useTempCra: boolean = true;
-    const userConfig = this.loadConfig();
     const version: string = await this.asyncSpawn(
       'npx',
       ['create-react-app', '-V'],

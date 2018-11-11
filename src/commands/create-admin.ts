@@ -79,7 +79,7 @@ export default class CreateAdmin extends Command {
     return useTempCra;
   }
 
-  async loadConfig() {
+  getConfig() {
     let userConfig: any = readFileSync(join(this.config.configDir, 'config.json'));
     if (!userConfig) {
       this.log('Config file not found. Please run r9 config first to setup your Gitlab account');
@@ -279,7 +279,7 @@ export default class CreateAdmin extends Command {
   }
 
   async run() {
-    const userConfig = this.loadConfig();
+    const userConfig = this.getConfig();
     const useTempCra = await this.checkVersion();
     const api = new Gitlab({
       url: userConfig.gitlab_url,

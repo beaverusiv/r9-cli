@@ -57,7 +57,6 @@ export default class Config extends Command {
           },
         },
       ]);
-    // TODO: filter stories on assigned to user
     shell.exec(`twgit feature start ${data.pivotal_story}`);
     // set pivotal story to 'started'
     await setPivotalStoryState(

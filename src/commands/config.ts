@@ -1,6 +1,6 @@
 import Command from '@oclif/command';
 import * as inquirer from 'inquirer';
-import { writeFileSync, mkdirSync } from 'fs';
+import { writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
 
 export default class Config extends Command {
@@ -9,6 +9,8 @@ export default class Config extends Command {
   async run() {
     this.log('Visit https://git.room9.co.nz/profile/personal_access_tokens ' +
       'and ensure you have a personal access token with api access ready for input!');
+    this.log('Visit https://www.pivotaltracker.com/profile ' +
+      'and ensure you have an API token ready for input!');
     // ask the questions
     let data: any = await inquirer
       .prompt([
@@ -26,9 +28,20 @@ export default class Config extends Command {
           name: 'gitlab_key',
           message: 'Private access token: ',
         },
+        {
+          name: 'pivotal_url',
+          message: 'Pivotal Tracker URL: ',
+          default: 'https://www.pivotaltracker.com/services/v5',
+        },
+        {
+          name: 'pivotal_key',
+          message: 'Pivotal Tracker API token: ',
+        },
       ]);
     data = JSON.stringify(data);
-    mkdirSync(this.config.configDir);
+    if (!existsSync(this.config.configDir)) {
+      mkdirSync(this.config.configDir);
+    }
     writeFileSync(join(this.config.configDir, 'config.json'), data);
   }
 }

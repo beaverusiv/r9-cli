@@ -3,6 +3,7 @@ import * as inquirer from 'inquirer';
 import { default as fetch } from 'node-fetch';
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import * as shell from 'shelljs';
 
 export default class Config extends Command {
   static description = 'Create a new twgit feature sourced from Pivotal Tracker';
@@ -74,7 +75,7 @@ export default class Config extends Command {
         },
       ]);
     // TODO: filter stories on assigned to user
-    // TODO: twgit feature start ${data.pivotal_story}
+    shell.exec(`twgit feature start ${data.pivotal_story}`);
     // set pivotal story to 'started'
     await this.setPivotalStoryState(
       data.pivotal_project,

@@ -55,19 +55,7 @@ export default class CreateAdmin extends Command {
     });
   }
 
-  async loadConfig() {
-    let userConfig: any = readFileSync(join(this.config.configDir, 'config.json'));
-    if (!userConfig) {
-      this.log('Config file not found. Please run r9 config first to setup your Gitlab account');
-    }
-    userConfig = JSON.parse(userConfig);
-    if (!userConfig) {
-      this.log('Config not valid JSON. Please run r9 config first to setup your Gitlab account');
-    }
-    return userConfig;
-  }
-
-  async run() {
+  async checkVersion() {
     let useTempCra: boolean = true;
     const userConfig = this.loadConfig();
     const version: string = await this.asyncSpawn(
@@ -89,22 +77,33 @@ export default class CreateAdmin extends Command {
     } else {
       this.log('CRA not found, using temporary package');
     }
+    return useTempCra;
+  }
 
-    const api = new Gitlab({
-      url: userConfig.gitlab_url,
-      token: userConfig.gitlab_key,
-    });
+  async loadConfig() {
+    let userConfig: any = readFileSync(join(this.config.configDir, 'config.json'));
+    if (!userConfig) {
+      this.log('Config file not found. Please run r9 config first to setup your Gitlab account');
+    }
+    userConfig = JSON.parse(userConfig);
+    if (!userConfig) {
+      this.log('Config not valid JSON. Please run r9 config first to setup your Gitlab account');
+    }
+    return userConfig;
+  }
 
-    // get groups for selection list
+  async getGroupList(api: any): Promise<any[]> {
     const groups = await api.Groups.all();
     const groupOptions = groups.map((group: any) => ({
       name: group.name,
       value: { id: group.id, path: group.path },
     }));
     groupOptions.push({ name: 'Create new group', value: 'create_new' });
+    return groupOptions;
+  }
 
-    // ask the questions
-    const data: any = await inquirer
+  async getAnswers(groupOptions: any[]) {
+    return inquirer
       .prompt([
         {
           type: 'list',
@@ -132,26 +131,40 @@ export default class CreateAdmin extends Command {
           message: 'Path of the project: ',
           default: (answers: any) => urlSlug(answers.project),
         },
+        {
+          name: 'variables.dev_api_url',
+          message: 'Development API URL: ',
+          default: (answers: any) => `https://${answers.project_path}-api.dev.room9.nz`,
+        },
+        {
+          name: 'variables.uat_api_url',
+          message: 'UAT API URL: ',
+          default: (answers: any) => answers.variables.dev_api_url.replace('.dev.', '.uat.'),
+        },
+        {
+          name: 'variables.prod_api_url',
+          message: 'Production API URL: ',
+          default: (answers: any) => answers.variables.dev_api_url.replace('.dev.', '.prod.'),
+        },
+        {
+          name: 'variables.dev_url',
+          message: 'Development Admin URL: ',
+          default: (answers: any) => answers.variables.dev_api_url.replace('-api.', '.'),
+        },
+        {
+          name: 'variables.uat_url',
+          message: 'UAT Admin URL: ',
+          default: (answers: any) => answers.variables.dev_url.replace('.dev.', '.uat.'),
+        },
+        {
+          name: 'variables.prod_url',
+          message: 'Production Admin URL: ',
+          default: (answers: any) => answers.variables.dev_url.replace('.dev.', '.prod.'),
+        },
       ]);
+  }
 
-    // create gitlab group
-    if (data.create_group_name) {
-      await api.Groups.create({
-        name: data.create_group_name,
-        path: data.create_group_path,
-        visibility: 'internal',
-      });
-    }
-
-    // create gitlab project
-    await api.Projects.create({
-      name: data.project,
-      path: data.project_path,
-      namespace_id: data.group.id,
-      visibility: 'internal',
-      default_branch: 'stable',
-    });
-    // create the local project
+  async installCra(userConfig: any, data: any, useTempCra: boolean) {
     const craArgs = ['create-react-app', data.project, '--typescript'];
     if (useTempCra) {
       craArgs.unshift('--package');
@@ -161,10 +174,13 @@ export default class CreateAdmin extends Command {
       craArgs,
       { cwd: userConfig.projects_path },
     );
+  }
+
+  async installReactAdmin(projectDirectory: string) {
     await this.asyncSpawn(
       'npm',
       ['install', '--save', 'react-admin', '@feathersjs/client', '@room9/ra-feathers-client'],
-      { cwd: `${userConfig.projects_path}/${data.project}` },
+      { cwd: projectDirectory },
     );
     await this.asyncSpawn(
       'npm',
@@ -177,8 +193,11 @@ export default class CreateAdmin extends Command {
         '@types/feathersjs__feathers',
         '@types/react',
       ],
-      { cwd: `${userConfig.projects_path}/${data.project}` },
+      { cwd: projectDirectory },
     );
+  }
+
+  async copyFiles(projectDirectory: string) {
     const filesToCopy: any = {
       src: [
         'App.tsx',
@@ -190,6 +209,9 @@ export default class CreateAdmin extends Command {
       '__mocks__/@room9': [
         'ra-feathers-client.js',
       ],
+      '.': [
+        '.gitlab-ci.yml',
+      ],
     };
     const pathToFiles = join(__dirname, '../assets/create-admin');
     const copyPromises: Promise<any>[] = [];
@@ -198,16 +220,19 @@ export default class CreateAdmin extends Command {
       if (dir.includes('/')) {
         await this.asyncSpawn(
           'mkdir',
-          ['-p', `${userConfig.projects_path}/${data.project}/${dir}/`],
+          ['-p', `${projectDirectory}/${dir}/`],
         );
       }
       copyPromises.push(this.asyncSpawn(
         'cp',
-        ['-r', ...pathsToCopy, `${userConfig.projects_path}/${data.project}/${dir}/`],
+        ['-r', ...pathsToCopy, `${projectDirectory}/${dir}/`],
       ));
     });
-    await Promise.all(copyPromises);
-    const tsconfigFile = editJsonFile(`${userConfig.projects_path}/${data.project}/tsconfig.json`);
+    return Promise.all(copyPromises);
+  }
+
+  editTsconfig(projectDirectory: string) {
+    const tsconfigFile = editJsonFile(`${projectDirectory}/tsconfig.json`);
     const libs = tsconfigFile.get('compilerOptions.lib') || [];
     ['dom', 'es2015', 'es2017'].forEach((lib) => {
       if (!libs.includes(lib)) {
@@ -216,45 +241,82 @@ export default class CreateAdmin extends Command {
     });
     tsconfigFile.set('compilerOptions.lib', libs);
     tsconfigFile.save();
+  }
+
+  async setupGit(projectDirectory: string, group: string, project: string) {
     await this.asyncSpawn(
       'git',
-      ['remote', 'add', 'origin', `git@git.room9.co.nz:${data.group.path}/${data.project}.git`],
-      { cwd: `${userConfig.projects_path}/${data.project}` },
+      ['remote', 'add', 'origin', `git@git.room9.co.nz:${group}/${project}.git`],
+      { cwd: projectDirectory },
     );
-    await this.asyncSpawn(
-      'git',
-      ['add', '-A'],
-      { cwd: `${userConfig.projects_path}/${data.project}` },
-    );
+    await this.asyncSpawn('git', ['add', '-A'], { cwd: projectDirectory });
     await this.asyncSpawn(
       'git',
       ['commit', '--amend', '-am', '"Initial commit"'],
-      { cwd: `${userConfig.projects_path}/${data.project}` },
+      { cwd: projectDirectory },
     );
-    await this.asyncSpawn(
-      'git',
-      ['branch', '-m', 'stable'],
-      { cwd: `${userConfig.projects_path}/${data.project}` },
-    );
-    await this.asyncSpawn(
-      'git',
-      ['tag', 'v0.1.0'],
-      { cwd: `${userConfig.projects_path}/${data.project}` },
-    );
-    await this.asyncSpawn(
-      'git',
-      ['push', '-u', 'origin', '--all'],
-      { cwd: `${userConfig.projects_path}/${data.project}` },
-    );
-    await this.asyncSpawn(
-      'git',
-      ['push', '-u', 'origin', '--tags'],
-      { cwd: `${userConfig.projects_path}/${data.project}` },
-    );
-    await this.asyncSpawn(
-      'twgit',
-      ['demo', 'start', 'integration'],
-      { cwd: `${userConfig.projects_path}/${data.project}` },
-    );
+    await this.asyncSpawn('git', ['branch', '-m', 'stable'], { cwd: projectDirectory });
+    await this.asyncSpawn('git', ['tag', 'v0.1.0'], { cwd: projectDirectory });
+    await this.asyncSpawn('git', ['push', '-u', 'origin', '--all'], { cwd: projectDirectory });
+    await this.asyncSpawn('git', ['push', '-u', 'origin', '--tags'], { cwd: projectDirectory });
+    await this.asyncSpawn('twgit', ['demo', 'start', 'integration'], { cwd: projectDirectory });
+  }
+
+  async setupGitlabVariables(variables: any, api: any, projectId: number) {
+    const variablePromises: Promise<any>[] = [];
+    Object.keys(variables).forEach((i: string) => {
+      this.log('var', i, variables[i]);
+      return api.ProjectVariables.create(
+        projectId,
+        '',
+        {
+          key: i.toUpperCase(),
+          value: variables[i],
+          protected: false,
+        },
+      );
+    });
+    return Promise.all(variablePromises);
+  }
+
+  async run() {
+    const userConfig = this.loadConfig();
+    const useTempCra = await this.checkVersion();
+    const api = new Gitlab({
+      url: userConfig.gitlab_url,
+      token: userConfig.gitlab_key,
+    });
+
+    const groupOptions = await this.getGroupList(api);
+    const data: any = await this.getAnswers(groupOptions);
+    // for now we're stealing the ssh key from Hub
+    const sshKey: any = api.ProjectVariables.show(56, 81);
+    data.variables.ssh_private_key = sshKey.value;
+    const projectDirectory = `${userConfig.projects_path}/${data.project}`;
+
+    // create gitlab group
+    if (data.create_group_name) {
+      await api.Groups.create({
+        name: data.create_group_name,
+        path: data.create_group_path,
+        visibility: 'internal',
+      });
+    }
+
+    // create gitlab project
+    const project = await api.Projects.create({
+      name: data.project,
+      path: data.project_path,
+      namespace_id: data.group.id,
+      visibility: 'internal',
+      default_branch: 'stable',
+    });
+    // create the local project
+    await this.installCra(userConfig, data, useTempCra);
+    await this.installReactAdmin(projectDirectory);
+    await this.copyFiles(projectDirectory);
+    this.editTsconfig(projectDirectory);
+    await this.setupGit(projectDirectory, data.group.path, data.project);
+    await this.setupGitlabVariables(data.variables, api, project.id);
   }
 }

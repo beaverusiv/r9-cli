@@ -1,4 +1,4 @@
-import { Command } from '@oclif/command';
+import { Command, flags } from '@oclif/command';
 import * as inquirer from 'inquirer';
 import Gitlab from 'gitlab';
 import { gte } from 'semver';
@@ -8,18 +8,21 @@ import * as editJsonFile from 'edit-json-file';
 import * as urlSlug from 'url-slug';
 import * as shell from 'shelljs';
 import { npmInstall, npmInstallDev } from '../lib/npm';
+import { Verbosity } from '../types/verbosity.enum';
+import Config from './create-feature';
+import { checkBinaryDependencies } from '../lib/dependencies';
 
 export default class CreateAdmin extends Command {
   static description = 'Create a new react-admin project, ' +
     'including the Gitlab project and stable/demo-integration branches';
 
-  checkDependencies(): boolean {
-    if (!shell.which('twgit')) {
-      shell.echo('This tool requires twgit installed: https://github.com/Twenga/twgit');
-      return false;
-    }
-    return true;
-  }
+  static flags = {
+    verbosity: flags.integer({
+      char: 'v',
+      description:
+        'Set the output level for the command. 0 removes all output, 1 is default, maximum is 3.',
+    }),
+  };
 
   checkVersion() {
     let useTempCra: boolean = true;
@@ -190,7 +193,17 @@ export default class CreateAdmin extends Command {
   }
 
   async run() {
-    if (!this.checkDependencies()) {
+    const { flags } = this.parse(Config);
+    const verbosity: Verbosity = <number>flags.verbosity;
+
+    if (!checkBinaryDependencies(
+      [
+        'npx',
+        'git',
+        'twgit',
+      ],
+      verbosity,
+    )) {
       return 1;
     }
 

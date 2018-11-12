@@ -2,6 +2,7 @@ import Command from '@oclif/command';
 import * as inquirer from 'inquirer';
 import { writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
+import { getPivotalAccountId } from '../lib/pivotal';
 
 export default class Config extends Command {
   static description = 'Setup needed config for running commands like API keys';
@@ -38,6 +39,10 @@ export default class Config extends Command {
           message: 'Pivotal Tracker API token: ',
         },
       ]);
+    data.account_id = await getPivotalAccountId(
+      data.pivotal_url,
+      { headers: { 'X-TrackerToken': data.pivotal_key } },
+      );
     data = JSON.stringify(data);
     if (!existsSync(this.config.configDir)) {
       mkdirSync(this.config.configDir);

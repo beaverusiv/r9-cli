@@ -1,72 +1,31 @@
 import { Command } from '@oclif/command';
 import * as inquirer from 'inquirer';
 import Gitlab from 'gitlab';
-import { spawn } from 'child_process';
 import { gte } from 'semver';
 import { join } from 'path';
 import { readFileSync } from 'fs';
 import * as editJsonFile from 'edit-json-file';
 import * as urlSlug from 'url-slug';
+import * as shell from 'shelljs';
+import { npmInstall, npmInstallDev } from '../lib/npm';
 
 export default class CreateAdmin extends Command {
   static description = 'Create a new react-admin project, ' +
     'including the Gitlab project and stable/demo-integration branches';
 
-  async asyncSpawn(
-    command: string,
-    args: string[],
-    options: any = {},
-    outputStderr: boolean = true,
-    outputStdout: boolean = false,
-    returnStdout: boolean = false,
-  ): Promise<any> {
-    return new Promise((resolve, reject) => {
-      const cmd = spawn(command, args, options);
-      let output = '';
-
-      if (outputStdout || returnStdout) {
-        cmd.stdout.on('data', (data) => {
-          if (returnStdout) {
-            output += data;
-          } else if (outputStdout) {
-            console.log(`stdout: ${data}`);
-          }
-        });
-      }
-
-      if (outputStderr) {
-        cmd.stderr.on('data', (data) => {
-          console.log(`stderr: ${data}`);
-        });
-      }
-
-      cmd.on('close', (code) => {
-        console.log(`child process ${command} exited with code ${code}`);
-        if (code === 0) {
-          if (returnStdout) {
-            resolve(output);
-          } else {
-            resolve(code);
-          }
-        } else {
-          reject(code);
-        }
-      });
-    });
+  checkDependencies(): boolean {
+    if (!shell.which('twgit')) {
+      shell.echo('This tool requires twgit installed: https://github.com/Twenga/twgit');
+      return false;
+    }
+    return true;
   }
 
-  async checkVersion() {
+  checkVersion() {
     let useTempCra: boolean = true;
-    const version: string = await this.asyncSpawn(
-      'npx',
-      ['create-react-app', '-V'],
-      {},
-      false,
-      false,
-      true,
-    );
+    const version: string = shell.exec('create-react-app -V', { silent:true }).stdout as string;
     if (version) {
-      this.log('CRA version is ', version);
+      this.log('CRA version is ', version.trim());
       if (gte(version, '2.1.0')) {
         this.log('Using local CRA package');
         useTempCra = false;
@@ -164,70 +123,28 @@ export default class CreateAdmin extends Command {
   }
 
   async installCra(userConfig: any, data: any, useTempCra: boolean) {
-    const craArgs = ['create-react-app', data.project, '--typescript'];
-    if (useTempCra) {
-      craArgs.unshift('--package');
-    }
-    await this.asyncSpawn(
-      'npx',
-      craArgs,
-      { cwd: userConfig.projects_path },
-    );
+    shell.pushd(userConfig.projects_path);
+    const args: string = `${useTempCra ? '--package ' : ''} ${data.project} --typescript`;
+    shell.exec(`npx create-react-app ${args}`);
+    shell.popd();
   }
 
   async installReactAdmin(projectDirectory: string) {
-    await this.asyncSpawn(
-      'npm',
-      ['install', '--save', 'react-admin', '@feathersjs/client', '@room9/ra-feathers-client'],
-      { cwd: projectDirectory },
-    );
-    await this.asyncSpawn(
-      'npm',
-      [
-        'install',
-        '--save-dev',
-        'ra-data-fakerest',
-        '@types/node',
-        '@feathersjs/feathers',
-        '@types/feathersjs__feathers',
-        '@types/react',
-      ],
-      { cwd: projectDirectory },
-    );
+    shell.pushd(projectDirectory);
+    npmInstall(['react-admin', '@feathersjs/client', '@room9/ra-feathers-client']);
+    npmInstallDev([
+      'ra-data-fakerest',
+      '@feathersjs/feathers',
+      '@types/node',
+      '@types/feathersjs__feathers',
+      '@types/react',
+    ]);
+    shell.popd();
   }
 
   async copyFiles(projectDirectory: string) {
-    const filesToCopy: any = {
-      src: [
-        'App.tsx',
-        'mapRequests.test.ts',
-        'mapRequests.ts',
-        'providers.ts',
-        'types',
-      ],
-      '__mocks__/@room9': [
-        'ra-feathers-client.js',
-      ],
-      '.': [
-        '.gitlab-ci.yml',
-      ],
-    };
     const pathToFiles = join(__dirname, '../assets/create-admin');
-    const copyPromises: Promise<any>[] = [];
-    Object.keys(filesToCopy).forEach(async (dir: string) => {
-      const pathsToCopy = filesToCopy[dir].map((file: string) => `${pathToFiles}/${dir}/${file}`);
-      if (dir.includes('/')) {
-        await this.asyncSpawn(
-          'mkdir',
-          ['-p', `${projectDirectory}/${dir}/`],
-        );
-      }
-      copyPromises.push(this.asyncSpawn(
-        'cp',
-        ['-r', ...pathsToCopy, `${projectDirectory}/${dir}/`],
-      ));
-    });
-    return Promise.all(copyPromises);
+    shell.exec(`cp -R ${pathToFiles}/* ${projectDirectory}/`);
   }
 
   editTsconfig(projectDirectory: string) {
@@ -243,22 +160,16 @@ export default class CreateAdmin extends Command {
   }
 
   async setupGit(projectDirectory: string, group: string, project: string) {
-    await this.asyncSpawn(
-      'git',
-      ['remote', 'add', 'origin', `git@git.room9.co.nz:${group}/${project}.git`],
-      { cwd: projectDirectory },
-    );
-    await this.asyncSpawn('git', ['add', '-A'], { cwd: projectDirectory });
-    await this.asyncSpawn(
-      'git',
-      ['commit', '--amend', '-am', '"Initial commit"'],
-      { cwd: projectDirectory },
-    );
-    await this.asyncSpawn('git', ['branch', '-m', 'stable'], { cwd: projectDirectory });
-    await this.asyncSpawn('git', ['tag', 'v0.1.0'], { cwd: projectDirectory });
-    await this.asyncSpawn('git', ['push', '-u', 'origin', '--all'], { cwd: projectDirectory });
-    await this.asyncSpawn('git', ['push', '-u', 'origin', '--tags'], { cwd: projectDirectory });
-    await this.asyncSpawn('twgit', ['demo', 'start', 'integration'], { cwd: projectDirectory });
+    shell.pushd(`${projectDirectory}`);
+    shell.exec(`git remote add origin git@git.room9.co.nz:${group}/${project}.git`);
+    shell.exec('git add -A');
+    shell.exec('git commit --amend -am "Initial commit"');
+    shell.exec('git branch -m stable');
+    shell.exec('git tag v0.1.0');
+    shell.exec('git push -u origin --all');
+    shell.exec('git push -u origin --tags');
+    shell.exec('twgit demo start integration');
+    shell.popd();
   }
 
   async setupGitlabVariables(variables: any, api: any, projectId: number) {
@@ -279,6 +190,10 @@ export default class CreateAdmin extends Command {
   }
 
   async run() {
+    if (!this.checkDependencies()) {
+      return 1;
+    }
+
     const userConfig = this.getConfig();
     const useTempCra = await this.checkVersion();
     const api = new Gitlab({

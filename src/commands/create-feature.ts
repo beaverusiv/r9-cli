@@ -1,20 +1,22 @@
-import Command from '@oclif/command';
+import { Command, flags } from '@oclif/command';
 import * as inquirer from 'inquirer';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import * as shell from 'shelljs';
 import { getPivotalProjects, getPivotalStories, setPivotalStoryState } from '../lib/pivotal';
+import { checkBinaryDependencies } from '../lib/dependencies';
+import { Verbosity } from '../types/verbosity.enum';
 
 export default class Config extends Command {
   static description = 'Create a new twgit feature sourced from Pivotal Tracker';
 
-  checkDependencies(): boolean {
-    if (!shell.which('twgit')) {
-      shell.echo('This tool requires twgit installed: https://github.com/Twenga/twgit');
-      return false;
-    }
-    return true;
-  }
+  static flags = {
+    verbosity: flags.integer({
+      char: 'v',
+      description:
+        'Set the output level for the command. 0 removes all output, 1 is default, maximum is 3.',
+    }),
+  };
 
   getConfig() {
     let userConfig: any = readFileSync(join(this.config.configDir, 'config.json'));
@@ -29,7 +31,16 @@ export default class Config extends Command {
   }
 
   async run() {
-    if (!this.checkDependencies()) {
+    const { flags } = this.parse(Config);
+    const verbosity: Verbosity = <number>flags.verbosity;
+
+    if (!checkBinaryDependencies(
+      [
+        'git',
+        'twgit',
+      ],
+      verbosity,
+    )) {
       return 1;
     }
 

@@ -3,7 +3,6 @@ import * as inquirer from 'inquirer';
 import Gitlab from 'gitlab';
 import { gte } from 'semver';
 import { join } from 'path';
-import { readFileSync } from 'fs';
 import * as editJsonFile from 'edit-json-file';
 import * as urlSlug from 'url-slug';
 import * as shell from 'shelljs';
@@ -11,6 +10,9 @@ import { npmInstall, npmInstallDev } from '../lib/npm';
 import { Verbosity } from '../types/verbosity.enum';
 import Config from './create-feature';
 import { checkBinaryDependencies } from '../lib/dependencies';
+import { getConfig } from '../lib/config';
+import * as ora from 'ora';
+import { UserConfig } from '../types/user-config';
 
 export default class CreateAdmin extends Command {
   static description = 'Create a new react-admin project, ' +
@@ -24,33 +26,34 @@ export default class CreateAdmin extends Command {
     }),
   };
 
-  checkVersion() {
-    let useTempCra: boolean = true;
-    const version: string = shell.exec('create-react-app -V', { silent:true }).stdout as string;
-    if (version) {
-      this.log('CRA version is ', version.trim());
-      if (gte(version, '2.1.0')) {
-        this.log('Using local CRA package');
-        useTempCra = false;
-      } else {
-        this.log('Local CRA not 2.1.0 or newer, using temporary package');
-      }
-    } else {
-      this.log('CRA not found, using temporary package');
+  async checkVersion(verbosity: Verbosity): Promise<boolean> {
+    let spinner: any;
+    if (verbosity > Verbosity.Normal) {
+      spinner = ora('Checking create-react-app version').start();
     }
-    return useTempCra;
-  }
+    return new Promise<boolean>((resolve) => {
+      shell.exec('create-react-app -V', { silent:true }, (code, stdout) => {
+        let useTempCra: boolean = true;
 
-  getConfig() {
-    let userConfig: any = readFileSync(join(this.config.configDir, 'config.json'));
-    if (!userConfig) {
-      this.log('Config file not found. Please run r9 config first to setup your Gitlab account');
-    }
-    userConfig = JSON.parse(userConfig);
-    if (!userConfig) {
-      this.log('Config not valid JSON. Please run r9 config first to setup your Gitlab account');
-    }
-    return userConfig;
+        if (stdout) {
+          if (gte(stdout, '2.1.0')) {
+            if (verbosity > Verbosity.Normal && spinner) {
+              spinner.succeed(`Using local create-react-app@${stdout.trim()} package`);
+            }
+            useTempCra = false;
+          } else {
+            if (verbosity > Verbosity.Normal && spinner) {
+              spinner.succeed(
+                `Using temporary create-react-app package, local version was ${stdout.trim()}`,
+              );
+            }
+          }
+        } else {
+          spinner.succeed('create-react-app not found, using temporary package');
+        }
+        resolve(useTempCra);
+      });
+    });
   }
 
   async getGroupList(api: any): Promise<any[]> {
@@ -196,19 +199,17 @@ export default class CreateAdmin extends Command {
     const { flags } = this.parse(Config);
     const verbosity: Verbosity = <number>flags.verbosity;
 
-    if (!checkBinaryDependencies(
-      [
-        'npx',
-        'git',
-        'twgit',
-      ],
-      verbosity,
-    )) {
+    if (!checkBinaryDependencies(['npx', 'git', 'twgit'], verbosity)) {
       return 1;
     }
 
-    const userConfig = this.getConfig();
-    const useTempCra = await this.checkVersion();
+    const userConfig: UserConfig | null =
+      await getConfig(join(this.config.configDir, 'config.json'), verbosity);
+    if (userConfig === null) {
+      return 2;
+    }
+
+    const useTempCra = await this.checkVersion(verbosity);
     const api = new Gitlab({
       url: userConfig.gitlab_url,
       token: userConfig.gitlab_key,

@@ -1,11 +1,12 @@
 import { Command, flags } from '@oclif/command';
 import * as inquirer from 'inquirer';
-import { readFileSync } from 'fs';
 import { join } from 'path';
 import * as shell from 'shelljs';
 import { getPivotalProjects, getPivotalStories, setPivotalStoryState } from '../lib/pivotal';
 import { checkBinaryDependencies } from '../lib/dependencies';
 import { Verbosity } from '../types/verbosity.enum';
+import { getConfig } from '../lib/config';
+import { UserConfig } from '../types/user-config';
 
 export default class Config extends Command {
   static description = 'Create a new twgit feature sourced from Pivotal Tracker';
@@ -17,18 +18,6 @@ export default class Config extends Command {
         'Set the output level for the command. 0 removes all output, 1 is default, maximum is 3.',
     }),
   };
-
-  getConfig() {
-    let userConfig: any = readFileSync(join(this.config.configDir, 'config.json'));
-    if (!userConfig) {
-      this.log('Config file not found. Please run r9 config first to setup your Gitlab account');
-    }
-    userConfig = JSON.parse(userConfig);
-    if (!userConfig) {
-      this.log('Config not valid JSON. Please run r9 config first to setup your Gitlab account');
-    }
-    return userConfig;
-  }
 
   async run() {
     const { flags } = this.parse(Config);
@@ -44,7 +33,12 @@ export default class Config extends Command {
       return 1;
     }
 
-    const userConfig: any = this.getConfig();
+    const userConfig: UserConfig | null =
+      await getConfig(join(this.config.configDir, 'config.json'), verbosity);
+    if (userConfig === null) {
+      return 2;
+    }
+
     const headers = { headers: { 'X-TrackerToken': userConfig.pivotal_key } };
     const data: any = await inquirer
       .prompt([

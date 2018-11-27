@@ -7,8 +7,7 @@ import {
   getPivotalStories,
   setPivotalStoryState,
 } from '../lib/pivotal';
-import { checkBinaryDependencies } from '../lib/dependencies';
-import { Verbosity } from '../types/verbosity.enum';
+import { checkBinaryDependency } from '../lib/dependencies';
 import { getConfig } from '../lib/config';
 import { UserConfig } from '../types/user-config';
 
@@ -16,25 +15,15 @@ export default class Config extends Command {
   static description =
     'Create a new twgit feature sourced from Pivotal Tracker';
 
-  static flags = {
-    verbosity: flags.integer({
-      char: 'v',
-      description:
-        'Set the output level for the command. 0 removes all output, 1 is default, maximum is 3.',
-    }),
-  };
-
   async run() {
     const { flags } = this.parse(Config);
-    const verbosity: Verbosity = <number>flags.verbosity;
 
-    if (!checkBinaryDependencies(['git', 'twgit'], verbosity)) {
+    if (!checkBinaryDependency('git') || !checkBinaryDependency('twgit')) {
       return 1;
     }
 
     const userConfig: UserConfig | null = await getConfig(
       join(this.config.configDir, 'config.json'),
-      verbosity,
     );
     if (userConfig === null) {
       return 2;

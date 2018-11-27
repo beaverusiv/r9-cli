@@ -5,4 +5,5 @@ export interface UserConfig {
   pivotal_url: string;
   pivotal_key: string;
   account_id: number;
+  gitlab_id: number;
 }

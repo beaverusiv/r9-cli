@@ -10,6 +10,7 @@ import { npmInstall, npmInstallDev } from '../lib/npm';
 import { checkBinaryDependency } from '../lib/dependencies';
 import { getConfig } from '../lib/config';
 import * as Listr from 'listr';
+import { runCmd } from '../lib/shell';
 
 export default class CreateAdmin extends Command {
   static description =
@@ -115,16 +116,16 @@ export default class CreateAdmin extends Command {
   }
 
   async installCra(userConfig: any, data: any, useTempCra: boolean) {
-    shell.pushd(userConfig.projects_path);
+    shell.pushd('-q', userConfig.projects_path);
     const args: string = `${useTempCra ? '--package ' : ''} ${
       data.project
     } --typescript`;
-    shell.exec(`npx create-react-app ${args}`);
-    shell.popd();
+    runCmd(`npx create-react-app ${args}`);
+    shell.popd('-q');
   }
 
   async installReactAdmin(projectDirectory: string) {
-    shell.pushd(projectDirectory);
+    shell.pushd('-q', projectDirectory);
     npmInstall([
       'react-admin',
       '@feathersjs/client',
@@ -137,12 +138,12 @@ export default class CreateAdmin extends Command {
       '@types/feathersjs__feathers',
       '@types/react',
     ]);
-    shell.popd();
+    shell.popd('-q');
   }
 
   async copyFiles(projectDirectory: string) {
     const pathToFiles = join(__dirname, '../assets/create-admin');
-    shell.exec(`cp -R ${pathToFiles}/* ${projectDirectory}/`);
+    runCmd(`cp -R ${pathToFiles}/* ${projectDirectory}/`);
   }
 
   editTsconfig(projectDirectory: string) {
@@ -158,25 +159,23 @@ export default class CreateAdmin extends Command {
   }
 
   async setupGit(projectDirectory: string, group: string, project: string) {
-    shell.pushd(`${projectDirectory}`);
-    shell.exec(
-      `git remote add origin git@git.room9.co.nz:${group}/${project}.git`,
-    );
-    shell.exec('git add -A');
-    shell.exec('git commit --amend -am "Initial commit"');
-    shell.exec('git branch -m stable');
-    shell.exec('git tag v0.1.0');
-    shell.exec('git push -u origin --all');
-    shell.exec('git push -u origin --tags');
-    shell.exec('twgit demo start integration');
-    shell.popd();
+    shell.pushd('-q', `${projectDirectory}`);
+    runCmd(`git remote add origin git@git.room9.co.nz:${group}/${project}.git`);
+    runCmd('git add -A');
+    runCmd('git commit --amend -am "Initial commit"');
+    // TODO: pushing stable first results in the initial commit getting rejected. update Gitlab to 11.2+ to re-enable
+    runCmd('git branch -m stable');
+    runCmd('git push -u origin stable');
+    runCmd('git tag v0.1.0');
+    runCmd('git push -u origin --tags');
+    runCmd('twgit demo start integration');
+    shell.popd('-q');
   }
 
   async setupGitlabVariables(variables: any, api: any, projectId: number) {
     const variablePromises: Promise<any>[] = [];
     Object.keys(variables).forEach((i: string) => {
-      this.log('var', i, variables[i]);
-      return api.ProjectVariables.create(projectId, '', {
+      return api.ProjectVariables.create(projectId, {
         key: i.toUpperCase(),
         value: variables[i],
         protected: false,
@@ -275,11 +274,12 @@ export default class CreateAdmin extends Command {
                       [
                         {
                           title: 'Creating group',
-                          task: api.Groups.create({
-                            name: data.create_group_name,
-                            path: data.create_group_path,
-                            visibility: 'internal',
-                          }),
+                          task: async () =>
+                            api.Groups.create({
+                              name: data.create_group_name,
+                              path: data.create_group_path,
+                              visibility: 'internal',
+                            }),
                           skip: () => {
                             if (!data.create_group_name) {
                               return 'Using existing group';
@@ -298,6 +298,11 @@ export default class CreateAdmin extends Command {
                               default_branch: 'stable',
                             });
                             ctx.projectId = project.id;
+                            await api.ProjectMembers.add(
+                              ctx.projectId,
+                              userConfig.gitlab_id,
+                              40, // Master
+                            );
                           },
                         },
                       ],

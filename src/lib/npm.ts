@@ -1,9 +1,9 @@
-import * as shell from 'shelljs';
+import { runCmd } from './shell';
 
 export function npmInstall(packages: string[]) {
-  return shell.exec(`npm install --save ${packages.join(' ')}`);
+  return runCmd(`npm install --save ${packages.join(' ')}`);
 }
 
 export function npmInstallDev(packages: string[]) {
-  return shell.exec(`npm install --save-dev ${packages.join(' ')}`);
+  return runCmd(`npm install --save-dev ${packages.join(' ')}`);
 }

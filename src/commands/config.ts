@@ -3,6 +3,8 @@ import * as inquirer from 'inquirer';
 import { writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
 import { getPivotalAccountId } from '../lib/pivotal';
+import Gitlab from 'gitlab';
+import { UserConfig } from '../types/user-config';
 
 export default class Config extends Command {
   static description = 'Setup needed config for running commands like API keys';
@@ -17,7 +19,7 @@ export default class Config extends Command {
         'and ensure you have an API token ready for input!',
     );
     // ask the questions
-    let data: any = await inquirer.prompt([
+    const data: UserConfig = (await inquirer.prompt([
       {
         name: 'gitlab_url',
         message: 'Gitlab URL: ',
@@ -41,14 +43,26 @@ export default class Config extends Command {
         name: 'pivotal_key',
         message: 'Pivotal Tracker API token: ',
       },
-    ]);
-    data.account_id = await getPivotalAccountId(data.pivotal_url, {
-      headers: { 'X-TrackerToken': data.pivotal_key },
+    ])) as UserConfig;
+    const api = new Gitlab({
+      url: data.gitlab_url,
+      token: data.gitlab_key,
     });
-    data = JSON.stringify(data) + '\n';
+    await Promise.all([
+      api.Users.current(),
+      getPivotalAccountId(data.pivotal_url, {
+        headers: { 'X-TrackerToken': data.pivotal_key },
+      }),
+    ]).then((results: any[]) => {
+      data.gitlab_id = results[0].id;
+      data.account_id = results[1];
+    });
     if (!existsSync(this.config.configDir)) {
       mkdirSync(this.config.configDir);
     }
-    writeFileSync(join(this.config.configDir, 'config.json'), data);
+    writeFileSync(
+      join(this.config.configDir, 'config.json'),
+      JSON.stringify(data),
+    );
   }
 }

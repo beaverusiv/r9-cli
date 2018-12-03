@@ -1,5 +1,4 @@
-r9
-==
+# r9
 
 Room9 commandline tool to run common developer tasks
 
@@ -9,11 +8,15 @@ Room9 commandline tool to run common developer tasks
 [![License](https://img.shields.io/npm/l/r9.svg)](https://github.com/room9/r9/blob/master/package.json)
 
 <!-- toc -->
-* [Usage](#usage)
-* [Commands](#commands)
-<!-- tocstop -->
+
+- [Usage](#usage)
+- [Commands](#commands)
+  <!-- tocstop -->
+
 # Usage
+
 <!-- usage -->
+
 ```sh-session
 $ npm install -g r9
 $ r9 COMMAND
@@ -25,12 +28,16 @@ USAGE
   $ r9 COMMAND
 ...
 ```
+
 <!-- usagestop -->
+
 # Commands
+
 <!-- commands -->
-* `r9 config`
-* `r9 create-admin`
-* `r9 help [COMMAND]`
+
+- `r9 config`
+- `r9 create-admin`
+- `r9 help [COMMAND]`
 
 ## `r9 config`
 
@@ -80,4 +87,5 @@ OPTIONS
 ```
 
 _See code: [@oclif/plugin-help](https://github.com/oclif/plugin-help/blob/v2.1.3/src/commands/help.ts)_
+
 <!-- commandsstop -->

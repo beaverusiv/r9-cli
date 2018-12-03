@@ -1,12 +1,12 @@
 {
-  "name": "r9",
+  "name": "@room9/r9-cli",
   "description": "Room9 commandline tool to run common developer tasks",
   "version": "0.1.0",
   "author": "Nicholas Loomans @r9nick",
   "bin": {
     "r9": "./bin/run"
   },
-  "bugs": "https://github.com/room9/r9/issues",
+  "bugs": "https://github.com/room9/r9-cli/issues",
   "dependencies": {
     "@oclif/command": "^1.5.4",
     "@oclif/config": "^1.8.8",
@@ -55,7 +55,7 @@
     "/npm-shrinkwrap.json",
     "/oclif.manifest.json"
   ],
-  "homepage": "https://github.com/room9/r9",
+  "homepage": "https://github.com/room9/r9-cli",
   "keywords": [
     "oclif"
   ],
@@ -68,7 +68,7 @@
       "@oclif/plugin-help"
     ]
   },
-  "repository": "room9/r9",
+  "repository": "room9/r9-cli",
   "scripts": {
     "postpack": "rm -f oclif.manifest.json",
     "posttest": "tslint -p test -t stylish",

@@ -1,0 +1,1 @@
+FROM docker.room9.co.nz:5000/room9/php:7.2-silverstripe-test

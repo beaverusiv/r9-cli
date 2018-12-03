@@ -1,0 +1,37 @@
+image: docker.room9.co.nz:5000/room9/node:8
+before_script:
+  - mkdir -p ~/.ssh
+  - '[[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config'
+  - eval $(ssh-agent -s)
+  - ssh-add <(echo "$SSH_PRIVATE_KEY")
+  - npm install
+unit test:
+  stage: test
+  script:
+    - npm test
+dev:
+  stage: deploy
+  script:
+    - REACT_APP_API_HOST=$DEV_API_URL npm run build
+    - rsync -a build/ deploy@$DEV_URL:/srv/$DEV_URL
+  when: on_success
+  only:
+    - /^demo-.*$/
+    - tags
+uat:
+  stage: deploy
+  script:
+    - REACT_APP_API_HOST=$UAT_API_URL npm run build
+    - rsync -a build/ deploy@$UAT_URL:/srv/$UAT_URL
+  when: manual
+  only:
+    - /^demo-.*$/
+    - tags
+production:
+  stage: deploy
+  script:
+    - REACT_APP_API_HOST=$PROD_API_URL npm run build
+    - rsync -a build/ deploy@$PROD_URL:/srv/$PROD_URL
+  when: manual
+  only:
+    - tags

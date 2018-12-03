@@ -1,0 +1,16 @@
+{
+  "name": "PROJECT_NAME",
+  "version": "0.1.0",
+  "description": "SilverStripe application.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@git.room9.co.nz:GROUP_NAME/PROJECT_NAME.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {}
+}

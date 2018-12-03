@@ -43,3 +43,7 @@ docker-compose -f docker-compose.production.yml -f docker-compose.development.ym
 ```
 
 This command will make an .sspak in the project root. SSPak requires your environment variables to run, so make sure all database-specific variables are set in .env file, and not just the PHP container.
+
+### Troubleshooting
+
+If you are having issues with Docker, you can refer to the [Room9 Docker page](https://room9nz.atlassian.net/wiki/spaces/RI/pages/388628481/Docker#Docker-Troubleshooting) for troubleshooting info. If you encounter an issue not mentioned on this page **add it**.

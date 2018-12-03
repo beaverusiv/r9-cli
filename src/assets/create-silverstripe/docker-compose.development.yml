@@ -1,0 +1,29 @@
+version: '3'
+
+services:
+  php:
+    ports:
+      - '8081:80'
+    volumes:
+      - .:/var/www/html
+  composer:
+    user: '1000:1000'
+    image: composer:1.7
+    container_name: 'PROJECT_NAME-composer'
+    volumes:
+      - './:/app'
+      - '~/.composer_cache:/root/composer/cache'
+    command: 'install'
+  sspak:
+    user: '1000:33'
+    image: docker.room9.co.nz:5000/room9/sspak
+    container_name: 'PROJECT_NAME-sspak'
+    volumes:
+      - './:/app'
+  npm:
+    user: '1000:1000'
+    image: node:10
+    working_dir: /opt/app
+    container_name: 'PROJECT_NAME-npm'
+    volumes:
+      - './:/opt/app'

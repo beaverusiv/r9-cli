@@ -1,0 +1,22 @@
+version: '3'
+
+services:
+  mysql:
+    image: mariadb:10.2
+    environment:
+      - MYSQL_ROOT_PASSWORD=password
+    volumes:
+      - database:/var/lib/mysql
+  php:
+    image: ss:test
+    entrypoint: '/var/www/html/docker-entrypoint.sh'
+    volumes:
+      - ss_cache:/var/www/html/silverstripe-cache
+      - ss_assets:/var/www/html/public/assets
+    depends_on:
+      - mysql
+
+volumes:
+  database:
+  ss_cache:
+  ss_assets:

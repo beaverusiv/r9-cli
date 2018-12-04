@@ -6,7 +6,9 @@ This is a SilverStripe application with support for docker.
 
 ## Installation
 
-Clone repository and run `docker-compose -f docker-compose.production.yml -f docker-compose.development.yml up`
+1. Clone repository
+2. run `docker build --tag docker.room9.co.nz:5000/GROUP_NAME/PROJECT_NAME:latest .`
+3. run `docker-compose -f docker-compose.production.yml -f docker-compose.development.yml up`
 
 ## Development
 

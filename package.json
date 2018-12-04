@@ -1,7 +1,7 @@
 {
   "name": "@room9/r9-cli",
   "description": "Room9 commandline tool to run common developer tasks",
-  "version": "0.2.0",
+  "version": "0.2.2",
   "author": "Nicholas Loomans @r9nick",
   "bin": {
     "r9": "./bin/run"
@@ -16,7 +16,6 @@
     "inquirer": "^6.2.0",
     "listr": "^0.14.2",
     "node-fetch": "^2.2.1",
-    "react-admin": "^2.4.1",
     "semver": "^5.6.0",
     "shelljs": "^0.8.2",
     "tslib": "^1.9.3",
@@ -52,6 +51,7 @@
   "files": [
     "/bin",
     "/lib",
+    "/assets",
     "/npm-shrinkwrap.json",
     "/oclif.manifest.json"
   ],

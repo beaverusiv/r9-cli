@@ -1,10 +1,11 @@
 import Command from '@oclif/command';
 import * as inquirer from 'inquirer';
-import { writeFileSync, mkdirSync, existsSync } from 'fs';
+import { writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { getPivotalAccountId } from '../lib/pivotal';
 import Gitlab from 'gitlab';
 import { UserConfig } from '../types/user-config';
+import * as shell from 'shelljs';
 
 export default class Config extends Command {
   static description = 'Setup needed config for running commands like API keys';
@@ -58,7 +59,7 @@ export default class Config extends Command {
       data.account_id = results[1];
     });
     if (!existsSync(this.config.configDir)) {
-      mkdirSync(this.config.configDir);
+      shell.mkdir('-p', this.config.configDir);
     }
     writeFileSync(
       join(this.config.configDir, 'config.json'),

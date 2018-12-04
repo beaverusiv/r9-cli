@@ -69,7 +69,7 @@ export default class CreateAdmin extends Command {
   }
 
   async copyFiles(projectDirectory: string) {
-    const pathToFiles = join(__dirname, '../assets/create-silverstripe');
+    const pathToFiles = join(__dirname, '../../assets/create-silverstripe');
     runCmd(`cp -R ${pathToFiles}/* ${projectDirectory}/`);
   }
 

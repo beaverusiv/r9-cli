@@ -14,6 +14,6 @@ export function composerCreateProject(
 
 export function composerInstallDev(pkg: string, version: string) {
   runCmd(
-    `${composerCmd} require --dev --ignore-platform-reqs ${pkg} ${version}`,
+    `${composerCmd} require --dev --ignore-platform-reqs --working-dir /var/www/html ${pkg} ${version}`,
   );
 }

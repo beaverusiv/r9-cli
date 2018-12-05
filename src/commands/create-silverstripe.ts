@@ -1,17 +1,15 @@
 import { Command } from '@oclif/command';
 import * as inquirer from 'inquirer';
 import Gitlab from 'gitlab';
-import { gte } from 'semver';
 import { join } from 'path';
-import * as editJsonFile from 'edit-json-file';
 import * as urlSlug from 'url-slug';
 import * as shell from 'shelljs';
-import { npmInstall, npmInstallDev } from '../lib/npm';
 import { checkBinaryDependency } from '../lib/dependencies';
 import { getConfig } from '../lib/config';
 import * as Listr from 'listr';
 import { runCmd } from '../lib/shell';
 import { composerCreateProject, composerInstallDev } from '../lib/composer';
+import { safeDump } from 'js-yaml';
 
 export default class CreateAdmin extends Command {
   static description =
@@ -32,7 +30,7 @@ export default class CreateAdmin extends Command {
   }
 
   async getAnswers(groupOptions: any[]) {
-    return inquirer.prompt([
+    const initialAnswers = await inquirer.prompt([
       {
         type: 'list',
         name: 'group',
@@ -60,6 +58,34 @@ export default class CreateAdmin extends Command {
         default: (answers: any) => urlSlug(answers.project),
       },
     ]);
+    initialAnswers.deployments = [];
+    const deployQuestions = [
+      {
+        name: 'stage',
+        message: 'Deploy stage? (dev,uat,prod,...): ',
+        validate: (input: string) =>
+          input.length ? true : 'Please enter at least 1 character',
+      },
+      {
+        name: 'host',
+        message: 'Host: ',
+        default: (answers: any) =>
+          `${initialAnswers.project_path}.${answers.stage}.room9.nz`,
+      },
+    ];
+    const addAnotherDeployQuestion = [
+      {
+        name: 'cont',
+        type: 'confirm',
+        message: 'Add another deployment: ',
+      },
+    ];
+
+    do {
+      const answers = await inquirer.prompt(deployQuestions);
+      initialAnswers.deployments.push(answers);
+    } while (((await inquirer.prompt(addAnotherDeployQuestion)) as any).cont);
+    return initialAnswers;
   }
 
   async installSilverstripe(userConfig: any, data: any) {
@@ -127,7 +153,24 @@ export default class CreateAdmin extends Command {
     shell.popd('-q');
   }
 
-  async setupGitlabVariables(variables: any, api: any, projectId: number) {
+  async setupGitlabVariables(
+    variables: any,
+    api: any,
+    projectId: number,
+    deployments: any[],
+  ) {
+    variables.deploy_servers = safeDump(
+      deployments.reduce((retVal, deploy) => {
+        retVal[`${deploy.host}-${deploy.stage}`] = {
+          host: deploy.host,
+          user: 'deploy',
+          forward_agent: true,
+          stage: deploy.stage,
+          deploy_path: `/srv/${deploy.host}`,
+        };
+        return retVal;
+      }, {}),
+    );
     const variablePromises: Promise<any>[] = [];
     Object.keys(variables).forEach((i: string) => {
       return api.ProjectVariables.create(projectId, {
@@ -339,6 +382,7 @@ export default class CreateAdmin extends Command {
                       data.variables,
                       api,
                       ctx.projectId,
+                      data.deployments,
                     ),
                 },
               ],

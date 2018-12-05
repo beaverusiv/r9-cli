@@ -70,7 +70,7 @@ export default class CreateAdmin extends Command {
         name: 'host',
         message: 'Host: ',
         default: (answers: any) =>
-          `https://${initialAnswers.project_path}.${answers.stage}.room9.nz`,
+          `${initialAnswers.project_path}.${answers.stage}.room9.nz`,
       },
     ];
     const addAnotherDeployQuestion = [
@@ -159,7 +159,18 @@ export default class CreateAdmin extends Command {
     projectId: number,
     deployments: any[],
   ) {
-    variables.deploy_servers = safeDump(deployments);
+    variables.deploy_servers = safeDump(
+      deployments.reduce((retVal, deploy) => {
+        retVal[`${deploy.host}-${deploy.stage}`] = {
+          host: deploy.host,
+          user: 'deploy',
+          forward_agent: true,
+          stage: deploy.stage,
+          deploy_path: `/srv/${deploy.host}`,
+        };
+        return retVal;
+      }, {}),
+    );
     const variablePromises: Promise<any>[] = [];
     Object.keys(variables).forEach((i: string) => {
       return api.ProjectVariables.create(projectId, {

@@ -11,7 +11,7 @@ import { checkBinaryDependency } from '../lib/dependencies';
 import { getConfig } from '../lib/config';
 import * as Listr from 'listr';
 import { runCmd } from '../lib/shell';
-import { composerCreateProject } from '../lib/composer';
+import { composerCreateProject, composerInstallDev } from '../lib/composer';
 
 export default class CreateAdmin extends Command {
   static description =
@@ -64,7 +64,8 @@ export default class CreateAdmin extends Command {
 
   async installSilverstripe(userConfig: any, data: any) {
     shell.pushd('-q', userConfig.projects_path);
-    composerCreateProject(data.project);
+    composerCreateProject(data.project, 'silverstripe/installer');
+    composerInstallDev('squizlabs/php_codesniffer', '3.*');
     shell.popd('-q');
   }
 
@@ -79,17 +80,36 @@ export default class CreateAdmin extends Command {
     projectPath: string,
     groupName: string,
   ) {
-    runCmd(
-      `sed -i -e 's/PROJECT_NAME/'${projectName}'/' ${projectDirectory}/README.md`,
+    shell.sed(
+      '-i',
+      'PROJECT_NAME',
+      projectName,
+      `${projectDirectory}/README.md`,
     );
-    runCmd(
-      `sed -i -e 's/PROJECT_NAME/'${projectPath}'/' ${projectDirectory}/docker-compose.development.yml`,
+    shell.sed('-i', 'GROUP_NAME', groupName, `${projectDirectory}/README.md`);
+    shell.sed(
+      '-i',
+      'PROJECT_NAME',
+      projectPath,
+      `${projectDirectory}/docker-compose.development.yml`,
     );
-    runCmd(
-      `sed -i -e 's/PROJECT_NAME/'${projectPath}'/' ${projectDirectory}/package.json`,
+    shell.sed(
+      '-i',
+      'PROJECT_NAME',
+      projectPath,
+      `${projectDirectory}/docker-compose.production.yml`,
     );
-    runCmd(
-      `sed -i -e 's/GROUP_NAME/'${groupName}'/' ${projectDirectory}/package.json`,
+    shell.sed(
+      '-i',
+      'PROJECT_NAME',
+      projectPath,
+      `${projectDirectory}/package.json`,
+    );
+    shell.sed(
+      '-i',
+      'GROUP_NAME',
+      groupName,
+      `${projectDirectory}/package.json`,
     );
   }
 
@@ -161,13 +181,22 @@ export default class CreateAdmin extends Command {
                     (ctx.groupOptions = await this.getGroupList(ctx.api)),
                 },
                 {
-                  title: 'Fetching Gitlab deploy key',
-                  // for now we're stealing the ssh key from Hub
-                  task: async (ctx) =>
-                    (ctx.sshKey = await ctx.api.ProjectVariables.show(
+                  title: 'Fetching Gitlab variables',
+                  // for now we're stealing the variables from Hub
+                  task: async (ctx) => {
+                    ctx.sshKey = await ctx.api.ProjectVariables.show(
                       56,
                       'SSH_PRIVATE_KEY',
-                    )),
+                    );
+                    ctx.sonarKey = await ctx.api.ProjectVariables.show(
+                      56,
+                      'SONAR_API_KEY',
+                    );
+                    ctx.sonarUrl = await ctx.api.ProjectVariables.show(
+                      56,
+                      'SONAR_URL',
+                    );
+                  },
                 },
               ],
               { concurrent: true },
@@ -178,11 +207,20 @@ export default class CreateAdmin extends Command {
       {},
     );
 
-    const { userConfig, api, groupOptions, sshKey } = await preTasks.run();
+    const {
+      userConfig,
+      api,
+      groupOptions,
+      sshKey,
+      sonarKey,
+      sonarUrl,
+    } = await preTasks.run();
 
     const data: any = await this.getAnswers(groupOptions);
     data.variables = {};
     data.variables.ssh_private_key = sshKey.value;
+    data.variables.sonar_api_key = sonarKey.value;
+    data.variables.sonar_url = sonarUrl.value;
     const projectDirectory = `${userConfig.projects_path}/${data.project}`;
 
     const postTasks = new Listr(

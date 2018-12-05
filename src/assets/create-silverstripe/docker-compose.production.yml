@@ -8,7 +8,7 @@ services:
     volumes:
       - database:/var/lib/mysql
   php:
-    image: ss:test
+    image: PROJECT_NAME:latest
     entrypoint: '/var/www/html/docker-entrypoint.sh'
     volumes:
       - ss_cache:/var/www/html/silverstripe-cache

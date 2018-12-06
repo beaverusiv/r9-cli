@@ -9,7 +9,12 @@ import { getConfig } from '../lib/config';
 import * as Listr from 'listr';
 import { runCmd } from '../lib/shell';
 import { composerCreateProject, composerInstallDev } from '../lib/composer';
-import { safeDump } from 'js-yaml';
+import { safeDump, safeLoad } from 'js-yaml';
+import { readFile, writeFile } from 'fs';
+import { promisify } from 'util';
+
+const readFilePromise = promisify(readFile);
+const writeFilePromise = promisify(writeFile);
 
 export default class CreateAdmin extends Command {
   static description =
@@ -97,7 +102,7 @@ export default class CreateAdmin extends Command {
 
   async copyFiles(projectDirectory: string) {
     const pathToFiles = join(__dirname, '../assets/create-silverstripe');
-    runCmd(`cp -R ${pathToFiles}/* ${projectDirectory}/`);
+    runCmd(`cp -R ${pathToFiles}/. ${projectDirectory}/`);
   }
 
   async editFiles(
@@ -105,6 +110,7 @@ export default class CreateAdmin extends Command {
     projectName: string,
     projectPath: string,
     groupName: string,
+    deployments: any[],
   ) {
     shell.sed(
       '-i',
@@ -136,6 +142,39 @@ export default class CreateAdmin extends Command {
       'GROUP_NAME',
       groupName,
       `${projectDirectory}/package.json`,
+    );
+    const ciConfig = safeLoad(
+      await readFilePromise(`${projectDirectory}/.gitlab-ci.yml`, {
+        encoding: 'utf-8',
+      }),
+    );
+    deployments.forEach((deploy) => {
+      if (deploy.stage === 'prod') {
+        deploy.stage = 'production';
+      }
+      ciConfig[`deploy to ${deploy.stage}`] = {
+        stage: 'deploy',
+        environment: deploy.stage,
+        script: [
+          'composer global require "deployer/deployer:4.3.0" --quiet',
+          'composer global require "deployer/recipes:4.0.7" --quiet',
+          `~/.composer/vendor/deployer/deployer/bin/dep deploy ${
+            deploy.stage
+          } --tag="$CI_BUILD_REF_NAME" -vvv`,
+        ],
+      };
+      if (deploy.stage === 'production') {
+        ciConfig[`deploy to ${deploy.stage}`].when = 'manual';
+        ciConfig[`deploy to ${deploy.stage}`].only = ['tags'];
+      } else {
+        ciConfig[`deploy to ${deploy.stage}`].when = 'on_success';
+        ciConfig[`deploy to ${deploy.stage}`].only = ['/^demo-.*$/', 'tags'];
+      }
+    });
+    await writeFilePromise(
+      `${projectDirectory}/.gitlab-ci.yml`,
+      safeDump(ciConfig, { lineWidth: 9999 }),
+      { encoding: 'utf-8' },
     );
   }
 
@@ -354,6 +393,7 @@ export default class CreateAdmin extends Command {
                       data.project_path,
                       data.project,
                       data.group.path,
+                      data.deployments,
                     ),
                 },
               ],

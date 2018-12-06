@@ -116,12 +116,13 @@ export default class CreateAdmin extends Command {
   }
 
   async installCra(userConfig: any, data: any, useTempCra: boolean) {
-    shell.pushd('-q', userConfig.projects_path);
-    const args: string = `${useTempCra ? '--package ' : ''} ${
-      data.project
-    } --typescript`;
-    runCmd(`npx create-react-app ${args}`);
-    shell.popd('-q');
+    const args = ['create-react-app'];
+    if (useTempCra) {
+      args.push('--package');
+    }
+    args.push(data.project);
+    args.push('--typescript');
+    await runCmd('npx', args, userConfig.projects_path);
   }
 
   async installReactAdmin(projectDirectory: string) {
@@ -143,7 +144,7 @@ export default class CreateAdmin extends Command {
 
   async copyFiles(projectDirectory: string) {
     const pathToFiles = join(__dirname, '../../assets/create-admin');
-    runCmd(`cp -R ${pathToFiles}/* ${projectDirectory}/`);
+    await runCmd('cp', ['-R', `${pathToFiles}/.`, `${projectDirectory}/`]);
   }
 
   editTsconfig(projectDirectory: string) {
@@ -160,14 +161,19 @@ export default class CreateAdmin extends Command {
 
   async setupGit(projectDirectory: string, group: string, project: string) {
     shell.pushd('-q', `${projectDirectory}`);
-    runCmd(`git remote add origin git@git.room9.co.nz:${group}/${project}.git`);
-    runCmd('git add -A');
-    runCmd('git commit --amend -am "Initial commit"');
-    runCmd('git branch -m stable');
-    runCmd('git push -u origin stable');
-    runCmd('git tag v0.1.0');
-    runCmd('git push -u origin --tags');
-    runCmd('twgit demo start integration');
+    await runCmd('git', [
+      'remote',
+      'add',
+      'origin',
+      `git@git.room9.co.nz:${group}/${project}.git`,
+    ]);
+    await runCmd('git', ['add', '-A']);
+    await runCmd('git', ['commit', '--amend', '-am', '"Initial commit"']);
+    await runCmd('git', ['branch', '-m', 'stable']);
+    await runCmd('git', ['push', '-u', 'origin', 'stable']);
+    await runCmd('git', ['tag', 'v0.1.0']);
+    await runCmd('git', ['push', '-u', 'origin', '--tags']);
+    await runCmd('twgit', ['demo', 'start', 'integration']);
     shell.popd('-q');
   }
 

@@ -1,17 +1,20 @@
 import { Command } from '@oclif/command';
 import * as inquirer from 'inquirer';
 import Gitlab from 'gitlab';
-import { gte } from 'semver';
 import { join } from 'path';
-import * as editJsonFile from 'edit-json-file';
 import * as urlSlug from 'url-slug';
 import * as shell from 'shelljs';
-import { npmInstall, npmInstallDev } from '../lib/npm';
 import { checkBinaryDependency } from '../lib/dependencies';
 import { getConfig } from '../lib/config';
 import * as Listr from 'listr';
 import { runCmd } from '../lib/shell';
-import { composerCreateProject } from '../lib/composer';
+import { composerCreateProject, composerInstallDev } from '../lib/composer';
+import { safeDump, safeLoad } from 'js-yaml';
+import { readFile, writeFile } from 'fs';
+import { promisify } from 'util';
+
+const readFilePromise = promisify(readFile);
+const writeFilePromise = promisify(writeFile);
 
 export default class CreateAdmin extends Command {
   static description =
@@ -32,7 +35,7 @@ export default class CreateAdmin extends Command {
   }
 
   async getAnswers(groupOptions: any[]) {
-    return inquirer.prompt([
+    const initialAnswers = await inquirer.prompt([
       {
         type: 'list',
         name: 'group',
@@ -60,17 +63,46 @@ export default class CreateAdmin extends Command {
         default: (answers: any) => urlSlug(answers.project),
       },
     ]);
+    initialAnswers.deployments = [];
+    const deployQuestions = [
+      {
+        name: 'stage',
+        message: 'Deploy stage? (dev,uat,prod,...): ',
+        validate: (input: string) =>
+          input.length ? true : 'Please enter at least 1 character',
+      },
+      {
+        name: 'host',
+        message: 'Host: ',
+        default: (answers: any) =>
+          `${initialAnswers.project_path}.${answers.stage}.room9.nz`,
+      },
+    ];
+    const addAnotherDeployQuestion = [
+      {
+        name: 'cont',
+        type: 'confirm',
+        message: 'Add another deployment: ',
+      },
+    ];
+
+    do {
+      const answers = await inquirer.prompt(deployQuestions);
+      initialAnswers.deployments.push(answers);
+    } while (((await inquirer.prompt(addAnotherDeployQuestion)) as any).cont);
+    return initialAnswers;
   }
 
   async installSilverstripe(userConfig: any, data: any) {
     shell.pushd('-q', userConfig.projects_path);
-    composerCreateProject(data.project);
+    composerCreateProject(data.project, 'silverstripe/installer');
+    composerInstallDev('squizlabs/php_codesniffer', '3.*');
     shell.popd('-q');
   }
 
   async copyFiles(projectDirectory: string) {
     const pathToFiles = join(__dirname, '../assets/create-silverstripe');
-    runCmd(`cp -R ${pathToFiles}/* ${projectDirectory}/`);
+    runCmd(`cp -R ${pathToFiles}/. ${projectDirectory}/`);
   }
 
   async editFiles(
@@ -78,18 +110,71 @@ export default class CreateAdmin extends Command {
     projectName: string,
     projectPath: string,
     groupName: string,
+    deployments: any[],
   ) {
-    runCmd(
-      `sed -i -e 's/PROJECT_NAME/'${projectName}'/' ${projectDirectory}/README.md`,
+    shell.sed(
+      '-i',
+      'PROJECT_NAME',
+      projectName,
+      `${projectDirectory}/README.md`,
     );
-    runCmd(
-      `sed -i -e 's/PROJECT_NAME/'${projectPath}'/' ${projectDirectory}/docker-compose.development.yml`,
+    shell.sed('-i', 'GROUP_NAME', groupName, `${projectDirectory}/README.md`);
+    shell.sed(
+      '-i',
+      'PROJECT_NAME',
+      projectPath,
+      `${projectDirectory}/docker-compose.development.yml`,
     );
-    runCmd(
-      `sed -i -e 's/PROJECT_NAME/'${projectPath}'/' ${projectDirectory}/package.json`,
+    shell.sed(
+      '-i',
+      'PROJECT_NAME',
+      projectPath,
+      `${projectDirectory}/docker-compose.production.yml`,
     );
-    runCmd(
-      `sed -i -e 's/GROUP_NAME/'${groupName}'/' ${projectDirectory}/package.json`,
+    shell.sed(
+      '-i',
+      'PROJECT_NAME',
+      projectPath,
+      `${projectDirectory}/package.json`,
+    );
+    shell.sed(
+      '-i',
+      'GROUP_NAME',
+      groupName,
+      `${projectDirectory}/package.json`,
+    );
+    const ciConfig = safeLoad(
+      await readFilePromise(`${projectDirectory}/.gitlab-ci.yml`, {
+        encoding: 'utf-8',
+      }),
+    );
+    deployments.forEach((deploy) => {
+      if (deploy.stage === 'prod') {
+        deploy.stage = 'production';
+      }
+      ciConfig[`deploy to ${deploy.stage}`] = {
+        stage: 'deploy',
+        environment: deploy.stage,
+        script: [
+          'composer global require "deployer/deployer:4.3.0" --quiet',
+          'composer global require "deployer/recipes:4.0.7" --quiet',
+          `~/.composer/vendor/deployer/deployer/bin/dep deploy ${
+            deploy.stage
+          } --tag="$CI_BUILD_REF_NAME" -vvv`,
+        ],
+      };
+      if (deploy.stage === 'production') {
+        ciConfig[`deploy to ${deploy.stage}`].when = 'manual';
+        ciConfig[`deploy to ${deploy.stage}`].only = ['tags'];
+      } else {
+        ciConfig[`deploy to ${deploy.stage}`].when = 'on_success';
+        ciConfig[`deploy to ${deploy.stage}`].only = ['/^demo-.*$/', 'tags'];
+      }
+    });
+    await writeFilePromise(
+      `${projectDirectory}/.gitlab-ci.yml`,
+      safeDump(ciConfig, { lineWidth: 9999 }),
+      { encoding: 'utf-8' },
     );
   }
 
@@ -107,7 +192,24 @@ export default class CreateAdmin extends Command {
     shell.popd('-q');
   }
 
-  async setupGitlabVariables(variables: any, api: any, projectId: number) {
+  async setupGitlabVariables(
+    variables: any,
+    api: any,
+    projectId: number,
+    deployments: any[],
+  ) {
+    variables.deploy_servers = safeDump(
+      deployments.reduce((retVal, deploy) => {
+        retVal[`${deploy.host}-${deploy.stage}`] = {
+          host: deploy.host,
+          user: 'deploy',
+          forward_agent: true,
+          stage: deploy.stage,
+          deploy_path: `/srv/${deploy.host}`,
+        };
+        return retVal;
+      }, {}),
+    );
     const variablePromises: Promise<any>[] = [];
     Object.keys(variables).forEach((i: string) => {
       return api.ProjectVariables.create(projectId, {
@@ -161,13 +263,22 @@ export default class CreateAdmin extends Command {
                     (ctx.groupOptions = await this.getGroupList(ctx.api)),
                 },
                 {
-                  title: 'Fetching Gitlab deploy key',
-                  // for now we're stealing the ssh key from Hub
-                  task: async (ctx) =>
-                    (ctx.sshKey = await ctx.api.ProjectVariables.show(
+                  title: 'Fetching Gitlab variables',
+                  // for now we're stealing the variables from Hub
+                  task: async (ctx) => {
+                    ctx.sshKey = await ctx.api.ProjectVariables.show(
                       56,
                       'SSH_PRIVATE_KEY',
-                    )),
+                    );
+                    ctx.sonarKey = await ctx.api.ProjectVariables.show(
+                      56,
+                      'SONAR_API_KEY',
+                    );
+                    ctx.sonarUrl = await ctx.api.ProjectVariables.show(
+                      56,
+                      'SONAR_URL',
+                    );
+                  },
                 },
               ],
               { concurrent: true },
@@ -178,11 +289,20 @@ export default class CreateAdmin extends Command {
       {},
     );
 
-    const { userConfig, api, groupOptions, sshKey } = await preTasks.run();
+    const {
+      userConfig,
+      api,
+      groupOptions,
+      sshKey,
+      sonarKey,
+      sonarUrl,
+    } = await preTasks.run();
 
     const data: any = await this.getAnswers(groupOptions);
     data.variables = {};
     data.variables.ssh_private_key = sshKey.value;
+    data.variables.sonar_api_key = sonarKey.value;
+    data.variables.sonar_url = sonarUrl.value;
     const projectDirectory = `${userConfig.projects_path}/${data.project}`;
 
     const postTasks = new Listr(
@@ -273,6 +393,7 @@ export default class CreateAdmin extends Command {
                       data.project_path,
                       data.project,
                       data.group.path,
+                      data.deployments,
                     ),
                 },
               ],
@@ -301,6 +422,7 @@ export default class CreateAdmin extends Command {
                       data.variables,
                       api,
                       ctx.projectId,
+                      data.deployments,
                     ),
                 },
               ],

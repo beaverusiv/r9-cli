@@ -323,50 +323,50 @@ export default class CreateAdmin extends Command {
           task: (ctx) => {
             return new Listr(
               [
-                // {
-                //   title: 'Setting up Gitlab',
-                //   task: () => {
-                //     return new Listr(
-                //       [
-                //         {
-                //           title: 'Creating group',
-                //           task: async () => {
-                //             data.group = await api.Groups.create({
-                //               name: data.create_group_name,
-                //               path: data.create_group_path,
-                //               visibility: 'internal',
-                //             });
-                //           },
-                //           skip: () => {
-                //             if (!data.create_group_name) {
-                //               return 'Using existing group';
-                //             }
-                //             return false;
-                //           },
-                //         },
-                //         {
-                //           title: 'Creating project',
-                //           task: async () => {
-                //             const project = await api.Projects.create({
-                //               name: data.project,
-                //               path: data.project_path,
-                //               namespace_id: data.group.id,
-                //               visibility: 'internal',
-                //               default_branch: 'stable',
-                //             });
-                //             ctx.projectId = project.id;
-                //             await api.ProjectMembers.add(
-                //               ctx.projectId,
-                //               userConfig.gitlab_id,
-                //               40, // Master
-                //             );
-                //           },
-                //         },
-                //       ],
-                //       {},
-                //     );
-                //   },
-                // },
+                {
+                  title: 'Setting up Gitlab',
+                  task: () => {
+                    return new Listr(
+                      [
+                        {
+                          title: 'Creating group',
+                          task: async () => {
+                            data.group = await api.Groups.create({
+                              name: data.create_group_name,
+                              path: data.create_group_path,
+                              visibility: 'internal',
+                            });
+                          },
+                          skip: () => {
+                            if (!data.create_group_name) {
+                              return 'Using existing group';
+                            }
+                            return false;
+                          },
+                        },
+                        {
+                          title: 'Creating project',
+                          task: async () => {
+                            const project = await api.Projects.create({
+                              name: data.project,
+                              path: data.project_path,
+                              namespace_id: data.group.id,
+                              visibility: 'internal',
+                              default_branch: 'stable',
+                            });
+                            ctx.projectId = project.id;
+                            await api.ProjectMembers.add(
+                              ctx.projectId,
+                              userConfig.gitlab_id,
+                              40, // Master
+                            );
+                          },
+                        },
+                      ],
+                      {},
+                    );
+                  },
+                },
                 {
                   title: 'Setting up project skeleton',
                   task: () => {
@@ -387,60 +387,60 @@ export default class CreateAdmin extends Command {
             );
           },
         },
-        // {
-        //   title: 'Configuring project',
-        //   task: () => {
-        //     return new Listr(
-        //       [
-        //         {
-        //           title: 'Copying files',
-        //           task: async () => this.copyFiles(projectDirectory),
-        //         },
-        //         {
-        //           title: 'Editing files',
-        //           task: async () =>
-        //             this.editFiles(
-        //               projectDirectory,
-        //               data.project_path,
-        //               data.project,
-        //               data.group.path,
-        //               data.deployments,
-        //             ),
-        //         },
-        //       ],
-        //       {},
-        //     );
-        //   },
-        // },
-        // {
-        //   title: 'Finishing project setup',
-        //   task: (ctx) => {
-        //     return new Listr(
-        //       [
-        //         {
-        //           title: 'Setup git repository',
-        //           task: async () =>
-        //             this.setupGit(
-        //               projectDirectory,
-        //               data.group.path,
-        //               data.project,
-        //             ),
-        //         },
-        //         {
-        //           title: 'Setup gitlab variables',
-        //           task: () =>
-        //             this.setupGitlabVariables(
-        //               data.variables,
-        //               api,
-        //               ctx.projectId,
-        //               data.deployments,
-        //             ),
-        //         },
-        //       ],
-        //       { concurrent: true },
-        //     );
-        //   },
-        // },
+        {
+          title: 'Configuring project',
+          task: () => {
+            return new Listr(
+              [
+                {
+                  title: 'Copying files',
+                  task: async () => this.copyFiles(projectDirectory),
+                },
+                {
+                  title: 'Editing files',
+                  task: async () =>
+                    this.editFiles(
+                      projectDirectory,
+                      data.project_path,
+                      data.project,
+                      data.group.path,
+                      data.deployments,
+                    ),
+                },
+              ],
+              {},
+            );
+          },
+        },
+        {
+          title: 'Finishing project setup',
+          task: (ctx) => {
+            return new Listr(
+              [
+                {
+                  title: 'Setup git repository',
+                  task: async () =>
+                    this.setupGit(
+                      projectDirectory,
+                      data.group.path,
+                      data.project,
+                    ),
+                },
+                {
+                  title: 'Setup gitlab variables',
+                  task: () =>
+                    this.setupGitlabVariables(
+                      data.variables,
+                      api,
+                      ctx.projectId,
+                      data.deployments,
+                    ),
+                },
+              ],
+              { concurrent: true },
+            );
+          },
+        },
       ],
       {},
     );

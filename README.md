@@ -9,6 +9,7 @@ Room9 commandline tool to run common developer tasks
 
 <!-- toc -->
 
+- [r9](#r-9)
 - [Usage](#usage)
 - [Commands](#commands)
   <!-- tocstop -->
@@ -18,11 +19,11 @@ Room9 commandline tool to run common developer tasks
 <!-- usage -->
 
 ```sh-session
-$ npm install -g r9
+$ npm install -g @room9/r9-cli
 $ r9 COMMAND
 running command...
 $ r9 (-v|--version|version)
-r9/0.1.0 linux-x64 node-v8.12.0
+@room9/r9-cli/0.3.0 linux-x64 node-v8.14.0
 $ r9 --help [COMMAND]
 USAGE
   $ r9 COMMAND
@@ -35,26 +36,22 @@ USAGE
 
 <!-- commands -->
 
-- `r9 config`
-- `r9 create-admin`
-- `r9 help [COMMAND]`
+- [`r9 config`](#r-9-config)
+- [`r9 create-admin`](#r-9-create-admin)
+- [`r9 create-feature`](#r-9-create-feature)
+- [`r9 create-silverstripe`](#r-9-create-silverstripe)
+- [`r9 help [COMMAND]`](#r-9-help-command)
 
 ## `r9 config`
 
-Setup needed config for running commands like API keys.
-
-**Visit https://git.room9.co.nz/profile/personal_access_tokens and ensure you have a personal access token with api access ready for input!**
+Setup needed config for running commands like API keys
 
 ```
 USAGE
   $ r9 config
-
-OPTIONS
-  No options
-
-EXAMPLE
-  $ r9 config
 ```
+
+_See code: [src/commands/config.ts](https://github.com/room9/r9-cli/blob/v0.3.0/src/commands/config.ts)_
 
 ## `r9 create-admin`
 
@@ -63,13 +60,31 @@ Create a new react-admin project, including the Gitlab project and stable/demo-i
 ```
 USAGE
   $ r9 create-admin
-
-OPTIONS
-  No options
-
-EXAMPLE
-  $ r9 create-admin
 ```
+
+_See code: [src/commands/create-admin.ts](https://github.com/room9/r9-cli/blob/v0.3.0/src/commands/create-admin.ts)_
+
+## `r9 create-feature`
+
+Create a new twgit feature sourced from Pivotal Tracker
+
+```
+USAGE
+  $ r9 create-feature
+```
+
+_See code: [src/commands/create-feature.ts](https://github.com/room9/r9-cli/blob/v0.3.0/src/commands/create-feature.ts)_
+
+## `r9 create-silverstripe`
+
+Create a new Silverstripe project, including the Gitlab project and stable/demo-integration branches, and Dockerfile/.gitlab-ci.yml
+
+```
+USAGE
+  $ r9 create-silverstripe
+```
+
+_See code: [src/commands/create-silverstripe.ts](https://github.com/room9/r9-cli/blob/v0.3.0/src/commands/create-silverstripe.ts)_
 
 ## `r9 help [COMMAND]`
 

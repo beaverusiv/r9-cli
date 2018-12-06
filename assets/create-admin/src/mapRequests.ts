@@ -1,7 +1,7 @@
 const resourceMap: any = {
   users: {
-    resource: 'api/v1/rest/users'
-  }
+    resource: 'api/v1/rest/users',
+  },
 };
 
 export const mappedRequests = (dataProvider: any) => {

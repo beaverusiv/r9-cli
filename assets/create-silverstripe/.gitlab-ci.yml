@@ -1,0 +1,42 @@
+image: docker.room9.co.nz:5000/room9/php:7.2-silverstripe-test
+
+services:
+  - mariadb:10.2
+
+variables:
+  MYSQL_DATABASE: testdatabase
+  MYSQL_ROOT_PASSWORD: password
+
+before_script:
+- export PROJECT_VERSION=`git describe --abbrev=0 | cut -d "v" -f 2`
+- mkdir -p ~/.ssh
+- echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config
+- eval $(ssh-agent -s)
+- ssh-add <(echo "$SSH_PRIVATE_KEY")
+- composer install
+- echo "$DEPLOY_SERVERS" > servers.yml
+- NODE_PATH=/usr/lib/node_modules npm install
+
+test:app:
+  stage: test
+  script:
+  - mkdir -p silverstripe-cache
+  - mv .env.dist .env
+  - vendor/bin/phpcs app/src
+  - vendor/bin/phpunit -d memory_limit=200M
+
+sonar:preview:
+  stage: test
+  script:
+    - sonar-scanner -Dsonar.analysis.mode=preview -Dsonar.branch=$CI_COMMIT_REF_NAME -Dproject.settings=sonar.properties -Dsonar.projectName=$CI_PROJECT_NAME -Dsonar.projectVersion=$PROJECT_VERSION -Dsonar.projectKey=$CI_PROJECT_NAME -Dsonar.login=$SONAR_API_KEY -Dsonar.host.url=$SONAR_URL -Dsonar.gitlab.unique_issue_per_inline=true -Dsonar.gitlab.project_id=$CI_PROJECT_PATH -Dsonar.gitlab.commit_sha=$CI_BUILD_REF -Dsonar.gitlab.ref_name=$CI_BUILD_REF_NAME
+
+sonar:coverage:
+  stage: test
+  script:
+    - mkdir -p silverstripe-cache
+    - mv .env.dist .env
+    - sonar-scanner -X -Dsonar.branch=$CI_COMMIT_REF_NAME -Dproject.settings=sonar.properties -Dsonar.projectName=$CI_PROJECT_NAME -Dsonar.projectVersion=$PROJECT_VERSION -Dsonar.projectKey=$CI_PROJECT_NAME -Dsonar.login=$SONAR_API_KEY -Dsonar.host.url=$SONAR_URL
+  only:
+    - /^demo-.*$/
+    - tags
+  when: manual

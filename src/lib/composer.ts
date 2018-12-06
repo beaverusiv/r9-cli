@@ -53,11 +53,10 @@ export function composerInstallDev(
   ];
   return runCmd(composerCmd, [
     ...composerArgs,
-    'require',
     '--dev',
     '--ignore-platform-reqs',
-    '--working-dir',
-    '/var/www/html',
+    '--working-dir=/var/www/html',
+    'require',
     pkg,
     version,
   ]);

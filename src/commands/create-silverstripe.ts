@@ -97,6 +97,7 @@ export default class CreateAdmin extends Command {
     await composerCreateProject(
       data.project,
       'silverstripe/installer',
+      '^4',
       userConfig.projects_path,
     );
     await composerInstallDev(

@@ -4,6 +4,7 @@ import { join } from 'path';
 export async function composerCreateProject(
   projectName: string,
   projectType: string,
+  projectVersion: string,
   projectDir: string,
 ) {
   const composerCmd = 'docker';
@@ -27,7 +28,7 @@ export async function composerCreateProject(
     'create-project',
     projectType,
     `/var/www/html/${projectName}`,
-    '^4',
+    projectVersion,
   ]);
 }
 

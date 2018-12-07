@@ -140,6 +140,12 @@ export default class CreateAdmin extends Command {
     );
     shell.sed(
       '-i',
+      'GROUP_NAME',
+      groupName,
+      `${projectDirectory}/docker-compose.production.yml`,
+    );
+    shell.sed(
+      '-i',
       'PROJECT_NAME',
       projectPath,
       `${projectDirectory}/package.json`,

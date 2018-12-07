@@ -1,7 +1,7 @@
 {
   "name": "@room9/r9-cli",
   "description": "Room9 commandline tool to run common developer tasks",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "author": "Nicholas Loomans @r9nick",
   "bin": {
     "r9": "./bin/run"

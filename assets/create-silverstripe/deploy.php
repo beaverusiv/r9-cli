@@ -10,7 +10,7 @@ require 'recipe/silverstripe.php';
 // Set configurations
 set('ssh_type', 'native');
 set('ssh_multiplexing', true);
-set('repository', 'git@git.room9.co.nz:Room9/hub-room9-co-nz.git');
+set('repository', 'git@git.room9.co.nz:GROUP_NAME/PROJECT_NAME.git');
 set('shared_dirs', [
     'public/assets'
 ]);

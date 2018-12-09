@@ -156,6 +156,13 @@ export default class CreateAdmin extends Command {
       groupName,
       `${projectDirectory}/package.json`,
     );
+    shell.sed(
+      '-i',
+      'PROJECT_NAME',
+      projectPath,
+      `${projectDirectory}/deploy.php`,
+    );
+    shell.sed('-i', 'GROUP_NAME', groupName, `${projectDirectory}/deploy.php`);
     const ciConfig = safeLoad(
       await readFilePromise(`${projectDirectory}/.gitlab-ci.yml`, {
         encoding: 'utf-8',

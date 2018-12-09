@@ -23,7 +23,7 @@ $ npm install -g @room9/r9-cli
 $ r9 COMMAND
 running command...
 $ r9 (-v|--version|version)
-@room9/r9-cli/0.4.2 linux-x64 node-v8.14.0
+@room9/r9-cli/0.4.4 linux-x64 node-v8.14.0
 $ r9 --help [COMMAND]
 USAGE
   $ r9 COMMAND
@@ -51,7 +51,7 @@ USAGE
   $ r9 config
 ```
 
-_See code: [src/commands/config.ts](https://github.com/room9/r9-cli/blob/v0.4.2/src/commands/config.ts)_
+_See code: [src/commands/config.ts](https://github.com/room9/r9-cli/blob/v0.4.4/src/commands/config.ts)_
 
 ## `r9 create-admin`
 
@@ -62,7 +62,7 @@ USAGE
   $ r9 create-admin
 ```
 
-_See code: [src/commands/create-admin.ts](https://github.com/room9/r9-cli/blob/v0.4.2/src/commands/create-admin.ts)_
+_See code: [src/commands/create-admin.ts](https://github.com/room9/r9-cli/blob/v0.4.4/src/commands/create-admin.ts)_
 
 ## `r9 create-feature`
 
@@ -73,7 +73,7 @@ USAGE
   $ r9 create-feature
 ```
 
-_See code: [src/commands/create-feature.ts](https://github.com/room9/r9-cli/blob/v0.4.2/src/commands/create-feature.ts)_
+_See code: [src/commands/create-feature.ts](https://github.com/room9/r9-cli/blob/v0.4.4/src/commands/create-feature.ts)_
 
 ## `r9 create-silverstripe`
 
@@ -84,7 +84,7 @@ USAGE
   $ r9 create-silverstripe
 ```
 
-_See code: [src/commands/create-silverstripe.ts](https://github.com/room9/r9-cli/blob/v0.4.2/src/commands/create-silverstripe.ts)_
+_See code: [src/commands/create-silverstripe.ts](https://github.com/room9/r9-cli/blob/v0.4.4/src/commands/create-silverstripe.ts)_
 
 ## `r9 help [COMMAND]`
 
